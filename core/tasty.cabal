@@ -51,6 +51,7 @@ library
     stm >= 2.3,
     containers,
     mtl,
+    semigroups >= 0.17,
     tagged >= 0.5,
     regex-tdfa >= 1.1.8.2,
     optparse-applicative >= 0.11,

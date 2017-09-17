@@ -1,5 +1,5 @@
 -- vim:fdm=marker:foldtext=foldtext()
-{-# LANGUAGE BangPatterns, ImplicitParams, MultiParamTypeClasses, DeriveDataTypeable, FlexibleContexts #-}
+{-# LANGUAGE CPP, BangPatterns, ImplicitParams, MultiParamTypeClasses, DeriveDataTypeable, FlexibleContexts #-}
 -- | Console reporter ingredient
 module Test.Tasty.Ingredients.ConsoleReporter
   ( consoleTestReporter
@@ -23,7 +23,8 @@ import Text.Printf
 import qualified Data.IntMap as IntMap
 import Data.Char
 import Data.Maybe
-import Data.Monoid
+import Data.Monoid (Monoid(..), Any(..))
+import Data.Semigroup (Semigroup(..))
 import Data.Proxy
 import Data.Tagged
 import Data.Typeable
@@ -48,11 +49,16 @@ data TestOutput
   | Skip
   | Seq TestOutput TestOutput
 
+instance Semigroup TestOutput where
+  (<>) = Seq
+
 -- The monoid laws should hold observationally w.r.t. the semantics defined
 -- in this module
 instance Monoid TestOutput where
   mempty = Skip
+#if !(MIN_VERSION_base(4,11,0))
   mappend = Seq
+#endif
 
 type Level = Int
 
@@ -222,9 +228,14 @@ data Statistics = Statistics
   , statFailures :: !Int
   }
 
+instance Semigroup Statistics where
+  Statistics t1 f1 <> Statistics t2 f2 = Statistics (t1 + t2) (f1 + f2)
+
 instance Monoid Statistics where
-  Statistics t1 f1 `mappend` Statistics t2 f2 = Statistics (t1 + t2) (f1 + f2)
   mempty = Statistics 0 0
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
 
 computeStatistics :: StatusMap -> IO Statistics
 computeStatistics = getApp . foldMap (\var -> Ap $
@@ -452,12 +463,16 @@ data Maximum a
   = Maximum a
   | MinusInfinity
 
+instance Ord a => Semigroup (Maximum a) where
+  Maximum a <> Maximum b = Maximum (a `max` b)
+  MinusInfinity <> a = a
+  a <> MinusInfinity = a
+
 instance Ord a => Monoid (Maximum a) where
   mempty = MinusInfinity
-
-  Maximum a `mappend` Maximum b = Maximum (a `max` b)
-  MinusInfinity `mappend` a = a
-  a `mappend` MinusInfinity = a
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif
 
 -- | Compute the amount of space needed to align "OK"s and "FAIL"s
 computeAlignment :: OptionSet -> TestTree -> Int

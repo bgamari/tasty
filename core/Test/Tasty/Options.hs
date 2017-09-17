@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable,
              ExistentialQuantification, GADTs,
              OverlappingInstances, FlexibleInstances, UndecidableInstances,
-             TypeOperators #-}
+             TypeOperators, CPP #-}
 -- | Extensible options. They are used for provider-specific settings,
 -- ingredient-specific settings and core settings (such as the test name pattern).
 module Test.Tasty.Options
@@ -27,7 +27,8 @@ import Data.Map (Map)
 import Data.Tagged
 import Data.Proxy
 import Data.Typeable
-import Data.Monoid
+import Data.Semigroup (Semigroup(..))
+import Data.Monoid (Monoid(..))
 import Data.Foldable
 import Prelude  -- Silence FTP import warnings
 
@@ -77,11 +78,17 @@ data OptionValue = forall v . IsOption v => OptionValue v
 -- If some option has not been explicitly set, the default value is used.
 newtype OptionSet = OptionSet (Map TypeRep OptionValue)
 
+instance Semigroup OptionSet where
+  OptionSet a <> OptionSet b =
+    OptionSet $ Map.unionWith (flip const) a b
+
 -- | Later options override earlier ones
 instance Monoid OptionSet where
   mempty = OptionSet mempty
+#if !(MIN_VERSION_base(4,11,0))
   OptionSet a `mappend` OptionSet b =
     OptionSet $ Map.unionWith (flip const) a b
+#endif
 
 -- | Set the option value
 setOption :: IsOption v => v -> OptionSet -> OptionSet
